@@ -15,6 +15,7 @@ use Mautic\CampaignBundle\CampaignEvents;
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CampaignBundle\Entity\Event;
 use Mautic\CampaignBundle\Entity\EventRepository;
+use Mautic\CampaignBundle\Entity\LeadRepository;
 use Mautic\CampaignBundle\Event\CampaignBuilderEvent;
 use Mautic\CampaignBundle\Event\CampaignEvent;
 use Mautic\CampaignBundle\Event\PendingEvent;
@@ -42,14 +43,17 @@ class CampaignActionJumpToEventSubscriber implements EventSubscriberInterface
      */
     private $translator;
 
+    private $leadRepository;
+
     /**
      * CampaignActionJumpToEvent constructor.
      */
-    public function __construct(EventRepository $eventRepository, EventExecutioner $eventExecutioner, TranslatorInterface $translator)
+    public function __construct(EventRepository $eventRepository, EventExecutioner $eventExecutioner, TranslatorInterface $translator, LeadRepository $leadRepository)
     {
         $this->eventRepository  = $eventRepository;
         $this->eventExecutioner = $eventExecutioner;
         $this->translator       = $translator;
+        $this->leadRepository   = $leadRepository;
     }
 
     /**
@@ -111,7 +115,12 @@ class CampaignActionJumpToEventSubscriber implements EventSubscriberInterface
                 );
             }
         } else {
-            $this->eventExecutioner->executeForContacts($jumpTarget, $campaignEvent->getContacts());
+            // Increment the campaign rotation for the given contacts and current campaign
+            $this->leadRepository->incrementCampaignRotationForContacts(
+                $campaignEvent->getContactsKeyedById()->getKeys(),
+                $event->getCampaign()->getId()
+            );
+            $this->eventExecutioner->executeForContacts($jumpTarget, $campaignEvent->getContactsKeyedById());
             $campaignEvent->passRemaining();
         }
     }
